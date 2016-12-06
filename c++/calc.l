@@ -44,7 +44,8 @@ using namespace std;
 "exp"     {return EXP;}
 "abs"     {return ABS;}
 [a-zA-Z]+ {yylval.sval = strdup(yytext); return STRING;}
-"draw between" {return INTER;}
-"draw in color" {return COLOR;}
+"between " {return INTER;}
+"in color " {return COLOR;}
+"draw "      {return DRAW;}
 
 %%

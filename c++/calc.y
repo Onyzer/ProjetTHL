@@ -7,16 +7,17 @@
 #include <string>
 #include <iostream>
 #include <map>
-#include <boost/lexical_cast.hpp>
+//#include <boost/lexical_cast.hpp>
 
 using namespace std;
 map<string, vector<int> > functions;
 map<string, vector<float> > f_values;
+map<string, string> f_colors;
 vector<int> postfixedexp;
 vector<float> values;
 vector<float> pile;
 string color;
-int xmin, xmax, lines = 0;
+float xmin = -10, xmax = 10, lines = 0;
 
 extern int yylex();
 extern int yyparse();
@@ -32,7 +33,7 @@ void yyerror(const char* s);
 
 %token<fval> FLOAT
 %token<sval> STRING
-%token COLOR INTER
+%token COLOR INTER DRAW
 %token PI E X
 %token PLUS MINUS MULTIPLY DIVIDE LEFT RIGHT
 %token SIN COS SQRT EXP ABS LOG TANH COSH SINH ATAN ASIN ACOS TAN
@@ -54,11 +55,11 @@ calculation:
 line: NEWLINE
     | expression NEWLINE {}
 		| STRING LEFT X RIGHT EQUAL expression NEWLINE {functions[$1] = postfixedexp; for(int i = 0; i < postfixedexp.size(); i++){postfixedexp.pop_back();} f_values[$1] = values; for(int i = 0; i < values.size(); i++){values.pop_back();} }
-		| COLOR STRING {}
-		| INTER LEFT FLOAT DOTCOMA FLOAT RIGHT {if($3 > $5){xmax = $3; xmin = $5;}else{xmin = $3; xmax = $5;}}
-		| INTER LEFT MINUS FLOAT DOTCOMA FLOAT RIGHT {xmin = -$4; xmax = $6;}
-		| INTER LEFT FLOAT DOTCOMA MINUS FLOAT RIGHT {xmin = -$6; xmax = $3;}
-		| INTER LEFT MINUS FLOAT DOTCOMA MINUS FLOAT RIGHT {if(-$4 > -$7){xmax = -$4; xmin = -$7;}else{xmin = -$4; xmax = -$7;}}
+		| DRAW STRING COLOR STRING {f_colors[$2]=$4;}
+		| DRAW INTER LEFT FLOAT DOTCOMA FLOAT RIGHT {if($4 > $6){xmax = $4; xmin = $6;}else{xmin = $4; xmax = $6;}}
+		| DRAW INTER LEFT MINUS FLOAT DOTCOMA FLOAT RIGHT {xmin = -$5; xmax = $7;}
+		| DRAW INTER LEFT FLOAT DOTCOMA MINUS FLOAT RIGHT {xmin = -$7; xmax = $4;}
+		| DRAW INTER LEFT MINUS FLOAT DOTCOMA MINUS FLOAT RIGHT {if(-$5 > -$8){xmax = -$5; xmin = -$8;}else{xmin = -$5; xmax = -$8;}}
 ;
 
 expression: FLOAT                 		 { postfixedexp.push_back(FLOAT); values.push_back($1);}
@@ -174,8 +175,19 @@ int main() {
 	} while(!feof(yyin));
 
 	map<string, vector<int> >::iterator it;
+	cout << "{"<<endl;
+	float step = (xmax-xmin)/100;
 	for(it = functions.begin(); it != functions.end(); it++){
-		for( float x = xmin; x <= xmax; x++){
+		if(it!=functions.begin()){
+			cout << "," << endl;
+		}
+		cout << "\""<<it->first<<"\":["<<endl;
+		for( float x = xmin; x <= xmax; x+=step){
+			if(x > xmin){
+				cout <<"," << endl;
+			}else{
+				cout << "{\"color\":\""<<f_colors[it->first]<<"\"},"<<endl;
+			}
 			int i = 0;
 			while(i < it->second.size()){
 				if(it->second[i] == FLOAT){
@@ -187,9 +199,12 @@ int main() {
 				}
 				i++;
 			}
-			cout << it->first << "(" << x << ") = " << pile.back() << endl;
+			cout << "{\"x\":\"" << x << "\" , \"y\":\"" << pile.back() << "\"}";
+			//cout << it->first << "(" << x << ") = " << pile.back() << endl;
 		}
+		cout <<"]" << endl;
 	}
+	cout <<"}";
 
 	return 0;
 }
