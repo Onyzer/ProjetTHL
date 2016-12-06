@@ -1,1 +1,5 @@
--1
+f(x) = x
+g(x) = x+2
+h(x) = f(x) + g(x)
+draw between x(-10;10) y(-100;100)
+draw in color red

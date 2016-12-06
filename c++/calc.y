@@ -6,12 +6,17 @@
 #include <vector>
 #include <string>
 #include <iostream>
+#include <map>
 #include <boost/lexical_cast.hpp>
 
 using namespace std;
+map<string, vector<int> > functions;
+map<string, vector<float> > f_values;
 vector<int> postfixedexp;
 vector<float> values;
 vector<float> pile;
+string color;
+int xmin, xmax, lines = 0;
 
 extern int yylex();
 extern int yyparse();
@@ -22,14 +27,17 @@ void yyerror(const char* s);
 
 %union {
 	float fval;
+	char *sval;
 }
 
 %token<fval> FLOAT
+%token<sval> STRING
+%token COLOR INTER
 %token PI E X
 %token PLUS MINUS MULTIPLY DIVIDE LEFT RIGHT
-%token SIN COS SQRT EXP ABS
-%token NEWLINE QUIT
-%left PLUS MINUS
+%token SIN COS SQRT EXP ABS LOG TANH COSH SINH ATAN ASIN ACOS TAN
+%token NEWLINE
+%left PLUS MINUS EQUAL DOTCOMA
 %left MULTIPLY DIVIDE
 %left POW
 
@@ -45,6 +53,12 @@ calculation:
 
 line: NEWLINE
     | expression NEWLINE {}
+		| STRING LEFT X RIGHT EQUAL expression NEWLINE {functions[$1] = postfixedexp; for(int i = 0; i < postfixedexp.size(); i++){postfixedexp.pop_back();} f_values[$1] = values; for(int i = 0; i < values.size(); i++){values.pop_back();} }
+		| COLOR STRING {}
+		| INTER LEFT FLOAT DOTCOMA FLOAT RIGHT {if($3 > $5){xmax = $3; xmin = $5;}else{xmin = $3; xmax = $5;}}
+		| INTER LEFT MINUS FLOAT DOTCOMA FLOAT RIGHT {xmin = -$4; xmax = $6;}
+		| INTER LEFT FLOAT DOTCOMA MINUS FLOAT RIGHT {xmin = -$6; xmax = $3;}
+		| INTER LEFT MINUS FLOAT DOTCOMA MINUS FLOAT RIGHT {if(-$4 > -$7){xmax = -$4; xmin = -$7;}else{xmin = -$4; xmax = -$7;}}
 ;
 
 expression: FLOAT                 		 { postfixedexp.push_back(FLOAT); values.push_back($1);}
@@ -62,12 +76,20 @@ expression: FLOAT                 		 { postfixedexp.push_back(FLOAT); values.pus
 		| MINUS expression { postfixedexp.push_back(MINUS); values.push_back(-$2);}
 		| expression POW expression { postfixedexp.push_back(POW); values.push_back(0);}
 		| EXP LEFT expression RIGHT { postfixedexp.push_back(EXP); values.push_back(0);}
+		| TAN LEFT expression RIGHT { postfixedexp.push_back(TAN); values.push_back(0);}
+		| ACOS LEFT expression RIGHT { postfixedexp.push_back(ACOS); values.push_back(0);}
+		| ASIN LEFT expression RIGHT { postfixedexp.push_back(ASIN); values.push_back(0);}
+		| ATAN LEFT expression RIGHT { postfixedexp.push_back(ATAN); values.push_back(0);}
+		| SINH LEFT expression RIGHT { postfixedexp.push_back(SINH); values.push_back(0);}
+		| COSH LEFT expression RIGHT { postfixedexp.push_back(COSH); values.push_back(0);}
+		| TANH LEFT expression RIGHT { postfixedexp.push_back(TANH); values.push_back(0);}
+		| LOG LEFT expression RIGHT { postfixedexp.push_back(LOG); values.push_back(0);}
 		| ABS LEFT expression RIGHT { postfixedexp.push_back(ABS); values.push_back(0);}
 ;
 
 %%
 
-float depiler_operande(int func, int i){
+float depiler_operande(int func, int i, string name){
 	float v1 = pile.back();
 	pile.pop_back();
 	float v2;
@@ -78,7 +100,7 @@ float depiler_operande(int func, int i){
 				return(v2+v1);
 			break;
 		case MINUS:
-			if(values[i] == 0){
+			if(f_values[name][i] == 0  && functions[name][i-1] != X){
 				v2 = pile.back();
 				pile.pop_back();
 				return(v2-v1);
@@ -116,7 +138,30 @@ float depiler_operande(int func, int i){
 		case EXP:
 			return(exp(v1));
 			break;
-
+		case TAN:
+			return(tan(v1));
+			break;
+		case ACOS:
+			return(acos(v1));
+			break;
+		case ASIN:
+			return(asin(v1));
+			break;
+		case ATAN:
+			return(atan(v1));
+			break;
+		case SINH:
+			return(sinh(v1));
+			break;
+		case COSH:
+			return(cosh(v1));
+			break;
+		case TANH:
+			return(tanh(v1));
+			break;
+		case LOG:
+			return(log(v1));
+			break;
 
 	}
 }
@@ -124,24 +169,26 @@ float depiler_operande(int func, int i){
 int main() {
 
 	yyin = stdin;
-	vector<int>::iterator it;
 	do {
 		yyparse();
 	} while(!feof(yyin));
 
-	for( float x = -10; x <= 10; x++){
-		int i = 0;
-		while(i < postfixedexp.size()){
-			if(postfixedexp[i] == FLOAT){
-				pile.push_back(values[i]);
-			}else if(postfixedexp[i] == X){
-				pile.push_back(x);
-			}else{
-				pile.push_back(depiler_operande(postfixedexp[i], i));
+	map<string, vector<int> >::iterator it;
+	for(it = functions.begin(); it != functions.end(); it++){
+		for( float x = xmin; x <= xmax; x++){
+			int i = 0;
+			while(i < it->second.size()){
+				if(it->second[i] == FLOAT){
+					pile.push_back(f_values[it->first][i]);
+				}else if(it->second[i] == X){
+					pile.push_back(x);
+				}else{
+					pile.push_back(depiler_operande(it->second[i], i, it->first));
+				}
+				i++;
 			}
-			i++;
+			cout << it->first << "(" << x << ") = " << pile.back() << endl;
 		}
-		cout << "f(" << x << ") = " << pile.back() << endl;
 	}
 
 	return 0;
